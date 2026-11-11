@@ -1,0 +1,6 @@
+{
+  "identifier": "settings",
+  "description": "Local overlay only; no native permissions for TikTok.",
+  "webviews": ["settings"],
+  "permissions": []
+}
