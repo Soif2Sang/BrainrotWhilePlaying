@@ -3,18 +3,12 @@ dist/
 src-tauri/target/
 src-tauri/gen/
 
-# Keep only the generated icons consumed by the Windows build.
 src-tauri/icons/*
 !src-tauri/icons/icon.ico
 !src-tauri/icons/icon.png
 !src-tauri/icons/128x128.png
 
-.env
-.env.*
-!.env.example
+/assets/*.png
+/assets/*-prompt.md
+.env*
 *.log
-*.tmp
-.DS_Store
-Thumbs.db
-.idea/
-.vscode/

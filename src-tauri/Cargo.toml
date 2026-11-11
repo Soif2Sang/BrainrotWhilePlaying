@@ -4,9 +4,6 @@ version = "0.1.0"
 edition = "2021"
 description = "A Windows TikTok overlay controlled with global numpad shortcuts."
 license = "MIT"
-repository = "https://github.com/Soif2Sang/brainrotwhileplaying"
-readme = "../README.md"
-publish = false
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

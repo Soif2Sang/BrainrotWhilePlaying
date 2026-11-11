@@ -4,12 +4,6 @@
   "private": true,
   "description": "A Windows TikTok overlay controlled with global numpad shortcuts.",
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/Soif2Sang/brainrotwhileplaying.git"
-  },
-  "bugs": "https://github.com/Soif2Sang/brainrotwhileplaying/issues",
-  "engines": { "node": ">=22" },
   "scripts": {
     "dev": "tauri dev",
     "build": "tauri build --no-bundle",
