@@ -8,6 +8,10 @@ TikTok is a third-party service. Its website, videos, account data, trademarks,
 and other content are not part of this repository's MIT license. This project
 is independent of TikTok and is not endorsed by it.
 
+The screenshot in `assets/screenshots/` illustrates the running application over
+Valheim. The game and TikTok content depicted belong to their respective owners
+and are not included in the source code's MIT license.
+
 ## Mascot and branding
 
 The artwork in `assets/*.png`, `ui/logo.png`, and `src-tauri/icons/` was generated

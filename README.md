@@ -12,6 +12,10 @@ A single always-on-top Windows window, with a built-in settings overlay.
 
 **Windows prototype · Tauri 2 + Rust + WebView2 · [Guide en français](README.fr.md)**
 
+![BrainrotWhilePlaying showing TikTok over Valheim while the game remains visible](assets/screenshots/valheim-overlay.png)
+
+*In-game example: TikTok stays above Valheim and can be controlled with the numpad.*
+
 ## Features
 
 - Global shortcuts: scroll, play/pause, mute, and adjust volume while the game has focus.

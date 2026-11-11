@@ -4,6 +4,10 @@
 
 Une seule fenêtre TikTok, sans bordure, toujours au-dessus du jeu. Les réglages apparaissent en surimpression avec **+** du pavé numérique. Ce panneau est une WebView locale distincte à l’intérieur de la même fenêtre ; TikTok ne peut pas invoquer ses commandes natives.
 
+![BrainrotWhilePlaying affichant TikTok au-dessus de Valheim](assets/screenshots/valheim-overlay.png)
+
+*Exemple en jeu : TikTok reste visible au-dessus de Valheim et se pilote au pavé numérique.*
+
 ## Lancer
 
 Prérequis Windows : Node.js, Rust MSVC, Visual Studio Build Tools (C++ et Windows SDK), Microsoft Edge WebView2 Runtime.
