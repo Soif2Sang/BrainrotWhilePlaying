@@ -4,11 +4,11 @@ use std::sync::Mutex;
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 mod bindings;
-use bindings::Binding;
+use bindings::{Binding, Mode};
 
 #[derive(serde::Serialize)]
 struct Status {
-    game_mode: bool,
+    mode: Mode,
     help: bool,
     compact: bool,
     error: Option<String>,
@@ -18,7 +18,7 @@ struct Status {
     #[serde(skip)]
     ready: bool,
     #[serde(skip)]
-    resume_game: bool,
+    resume_mode: Mode,
     #[serde(skip)]
     hidden: bool,
     #[serde(skip)]
@@ -32,7 +32,7 @@ struct Status {
 impl Default for Status {
     fn default() -> Self {
         Self {
-            game_mode: false,
+            mode: Mode::Interaction,
             help: true,
             compact: true,
             error: None,
@@ -40,7 +40,7 @@ impl Default for Status {
             capturing: false,
             listening: false,
             ready: false,
-            resume_game: false,
+            resume_mode: Mode::Interaction,
             hidden: false,
             corner: 0,
             size: 1,
@@ -96,10 +96,10 @@ fn refresh_bindings(app: &tauri::AppHandle) -> Result<(), String> {
         if !state.ready {
             return Ok(());
         }
-        let listening = !state.capturing;
+        let listening = state.mode != Mode::Free && !state.capturing;
         (
             state.bindings.clone(),
-            bindings::enabled(&state.bindings, state.capturing),
+            bindings::enabled(&state.bindings, state.mode, state.capturing),
             listening,
         )
     };
@@ -197,7 +197,8 @@ fn arrange(app: &tauri::AppHandle, reposition: bool) -> Result<(), String> {
     Ok(())
 }
 
-fn set_mode(app: &tauri::AppHandle, enabled: bool) -> Result<(), String> {
+fn set_mode(app: &tauri::AppHandle, mode: Mode) -> Result<(), String> {
+    let enabled = mode != Mode::Interaction;
     let window = app.get_window("tiktok").ok_or("Fenêtre fermée")?;
     let shared = app.state::<Shared>();
     let mut state = shared.lock().map_err(|e| e.to_string())?;
@@ -221,10 +222,10 @@ fn set_mode(app: &tauri::AppHandle, enabled: bool) -> Result<(), String> {
     if let Err(error) = result {
         let _ = window.set_ignore_cursor_events(false);
         let _ = window.set_focusable(true);
-        state.game_mode = false;
+        state.mode = Mode::Interaction;
         return Err(error.to_string());
     }
-    state.game_mode = enabled;
+    state.mode = mode;
     if !enabled {
         state.hidden = false;
     }
@@ -296,7 +297,7 @@ async fn drag_window(webview: tauri::Webview, app: tauri::AppHandle) -> Result<(
     {
         let shared = app.state::<Shared>();
         let state = shared.lock().map_err(|e| e.to_string())?;
-        if state.game_mode || state.capturing {
+        if state.mode != Mode::Interaction || state.capturing {
             return Err("Passe en interaction pour déplacer la fenêtre.".into());
         }
     }
@@ -391,7 +392,7 @@ async fn capture_key(
     let (game, help, capturing) = {
         let shared = app.state::<Shared>();
         let state = shared.lock().map_err(|e| e.to_string())?;
-        (state.game_mode, state.help, state.capturing)
+        (state.mode != Mode::Interaction, state.help, state.capturing)
     };
     if active && (game || !help) {
         return Err("Ouvre le panneau en mode interaction.".into());
@@ -419,7 +420,7 @@ async fn save_bindings(
     let old = {
         let shared = app.state::<Shared>();
         let state = shared.lock().map_err(|e| e.to_string())?;
-        if state.capturing || state.game_mode || !state.help {
+        if state.capturing || state.mode != Mode::Interaction || !state.help {
             return Err("Termine la saisie en mode interaction.".into());
         }
         state.bindings.clone()
@@ -438,7 +439,12 @@ async fn save_bindings(
         .and_then(|_| std::fs::rename(&temporary, &path).map_err(|e| e.to_string()));
     if let Err(error) = result {
         let _ = app.global_shortcut().unregister_all();
-        let recovery = register_bindings(&app, &bindings::enabled(&old, false));
+        let mode = app
+            .state::<Shared>()
+            .lock()
+            .map_err(|e| e.to_string())?
+            .mode;
+        let recovery = register_bindings(&app, &bindings::enabled(&old, mode, false));
         return Err(match recovery {
             Ok(()) => error,
             Err(restore) => {
@@ -464,13 +470,12 @@ fn perform(app: &tauri::AppHandle, action: &str) -> Result<(), String> {
             Ok(())
         }
         "mode" => {
-            let game = app
+            let mode = app
                 .state::<Shared>()
                 .lock()
                 .map_err(|e| e.to_string())?
-                .game_mode;
-            let enabled = has_focus(app) && !game;
-            set_mode(app, enabled)
+                .mode;
+            set_mode(app, mode.next())
         }
         "visibility" => {
             let shared = app.state::<Shared>();
@@ -486,24 +491,24 @@ fn perform(app: &tauri::AppHandle, action: &str) -> Result<(), String> {
             refresh_bindings(app)
         }
         "help" => {
-            let (open, game, resume) = {
+            let (open, mode, resume) = {
                 let shared = app.state::<Shared>();
                 let state = shared.lock().map_err(|e| e.to_string())?;
-                (state.help, state.game_mode, state.resume_game)
+                (state.help, state.mode, state.resume_mode)
             };
             if !open {
-                set_mode(app, false)?;
+                set_mode(app, Mode::Interaction)?;
                 let shared = app.state::<Shared>();
                 let mut state = shared.lock().map_err(|e| e.to_string())?;
                 state.help = true;
-                state.resume_game = game;
+                state.resume_mode = mode;
             } else {
                 app.state::<Shared>()
                     .lock()
                     .map_err(|e| e.to_string())?
                     .help = false;
-                if resume {
-                    set_mode(app, true)?;
+                if resume != Mode::Interaction {
+                    set_mode(app, resume)?;
                 }
             }
             update_panel(app)
@@ -578,6 +583,14 @@ fn main() {
                         let Some(action) = action else {
                             return;
                         };
+                        if action != "mode"
+                            && app
+                                .state::<Shared>()
+                                .lock()
+                                .map_or(true, |state| state.mode == Mode::Free)
+                        {
+                            return;
+                        }
                         let result = perform(&app, &action);
                         if let Ok(mut state) = app.state::<Shared>().lock() {
                             state.error = result.err();
@@ -611,6 +624,15 @@ fn main() {
                         app.state::<Shared>().lock().unwrap().error =
                             Some(format!("Réglages illisibles, touches par défaut : {error}"))
                     }
+                }
+            }
+            #[cfg(windows)]
+            {
+                let previous =
+                    unsafe { windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow() }.0
+                        as isize;
+                if previous != 0 {
+                    app.state::<Shared>().lock().unwrap().return_focus = Some(previous);
                 }
             }
             WebviewWindowBuilder::new(
@@ -670,14 +692,18 @@ fn main() {
             arrange(app.handle(), true).map_err(std::io::Error::other)?;
             layout_overlay(app.handle()).map_err(std::io::Error::other)?;
             let bindings = app.state::<Shared>().lock().unwrap().bindings.clone();
-            if let Err(error) =
-                register_bindings(app.handle(), &bindings::enabled(&bindings, false))
-            {
+            if let Err(error) = register_bindings(
+                app.handle(),
+                &bindings::enabled(&bindings, Mode::Interaction, false),
+            ) {
                 let defaults = bindings::defaults();
                 app.state::<Shared>().lock().unwrap().bindings = defaults.clone();
                 app.state::<Shared>().lock().unwrap().error = Some(error);
-                register_bindings(app.handle(), &bindings::enabled(&defaults, false))
-                    .map_err(std::io::Error::other)?;
+                register_bindings(
+                    app.handle(),
+                    &bindings::enabled(&defaults, Mode::Interaction, false),
+                )
+                .map_err(std::io::Error::other)?;
             }
             app.state::<Shared>().lock().unwrap().ready = true;
             let handle = app.handle().clone();

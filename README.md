@@ -10,6 +10,6 @@ TikTok over your game, controlled with your numpad. Windows app built with Tauri
 - Numpad controls for scrolling, play/pause, volume, and mute while playing.
 - Customizable shortcuts, saved between launches.
 - Settings overlay you can show or hide.
-- Game mode with click-through input and an interaction mode.
+- One key cycles through interaction, game with active shortcuts, and keyboard-free mode (only the activation key stays active).
 - Freely draggable window, adjustable sizes, and corner positioning.
 - Compact view or full TikTok website.

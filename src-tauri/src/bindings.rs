@@ -1,6 +1,25 @@
 use std::collections::HashSet;
 use tauri_plugin_global_shortcut::Shortcut;
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Mode {
+    #[default]
+    Interaction,
+    Game,
+    Free,
+}
+
+impl Mode {
+    pub fn next(self) -> Self {
+        match self {
+            Self::Interaction => Self::Game,
+            Self::Game => Self::Free,
+            Self::Free => Self::Interaction,
+        }
+    }
+}
+
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Binding {
     pub action: String,
@@ -56,8 +75,12 @@ pub fn validate(bindings: &[Binding]) -> Result<Vec<Shortcut>, String> {
         .collect()
 }
 
-pub fn enabled(bindings: &[Binding], capturing: bool) -> Vec<Binding> {
-    bindings.iter().filter(|_| !capturing).cloned().collect()
+pub fn enabled(bindings: &[Binding], mode: Mode, capturing: bool) -> Vec<Binding> {
+    bindings
+        .iter()
+        .filter(|binding| !capturing && (mode != Mode::Free || binding.action == "mode"))
+        .cloned()
+        .collect()
 }
 
 #[cfg(test)]
@@ -70,8 +93,12 @@ mod tests {
     #[test]
     fn all_shortcuts_stay_active_while_gaming() {
         let bindings = defaults();
-        assert_eq!(enabled(&bindings, false).len(), 13);
-        assert!(enabled(&bindings, false).iter().any(|b| b.action == "next"));
+        for mode in [Mode::Interaction, Mode::Game] {
+            assert_eq!(enabled(&bindings, mode, false).len(), 13);
+            assert!(enabled(&bindings, mode, false)
+                .iter()
+                .any(|b| b.action == "next"));
+        }
     }
     #[test]
     fn focus_rebinding_and_capture_obey_the_same_policy() {
@@ -82,14 +109,32 @@ mod tests {
             .unwrap()
             .shortcut = "Numpad1".into();
         assert_eq!(
-            enabled(&bindings, false)
+            enabled(&bindings, Mode::Free, false)
                 .iter()
                 .find(|b| b.action == "mode")
                 .unwrap()
                 .shortcut,
             "Numpad1"
         );
-        assert!(enabled(&bindings, true).is_empty());
+        assert_eq!(enabled(&bindings, Mode::Free, false).len(), 1);
+        for mode in [Mode::Interaction, Mode::Game, Mode::Free] {
+            assert!(enabled(&bindings, mode, true).is_empty());
+        }
+    }
+    #[test]
+    fn focus_key_cycles_interaction_game_free_then_interaction() {
+        let mut mode = Mode::Interaction;
+        for expected in [Mode::Game, Mode::Free, Mode::Interaction] {
+            mode = mode.next();
+            assert_eq!(mode, expected);
+        }
+    }
+    #[test]
+    fn free_mode_reserves_only_the_activation_key() {
+        let selected = enabled(&defaults(), Mode::Free, false);
+        assert_eq!(selected.len(), 1);
+        assert_eq!(selected[0].action, "mode");
+        assert_eq!(selected[0].shortcut, "NumpadDivide");
     }
     #[test]
     fn detects_equivalent_shortcuts() {

@@ -1,5 +1,5 @@
 const { invoke } = window.__TAURI__.core;
-const labels = { help:'Afficher / masquer le panneau', mode:'Interaction / mode jeu', visibility:'Afficher / masquer la fenêtre', previous:'Remonter', next:'Descendre', pause:'Lecture / pause', quieter:'Baisser le volume', louder:'Monter le volume', mute:'Couper / rétablir le son', corner:'Changer de coin', size:'Changer de taille', compact:'Vue compacte / site complet', quit:'Quitter BrainrotWhilePlaying' };
+const labels = { help:'Afficher / masquer le panneau', mode:'Interaction → jeu → clavier libre', visibility:'Afficher / masquer la fenêtre', previous:'Remonter', next:'Descendre', pause:'Lecture / pause', quieter:'Baisser le volume', louder:'Monter le volume', mute:'Couper / rétablir le son', corner:'Changer de coin', size:'Changer de taille', compact:'Vue compacte / site complet', quit:'Quitter BrainrotWhilePlaying' };
 const $ = selector => document.querySelector(selector);
 let current, draft, defaults, captureAction = null, captureTimer, busy = false;
 function pretty(shortcut) {
@@ -31,12 +31,17 @@ window.updateSettings = state => {
   current=state;
   document.documentElement.classList.toggle('toolbar-only',!state.help);
   const badge=$('#listening');
-  badge.textContent=state.capturing?'⌨ Saisie…':state.listening?'⌨ Pavé actif':'⌨ Indisponible';
+  const names={interaction:'Interaction',game:'Jeu · pavé actif',free:'Clavier libre'};
+  document.documentElement.dataset.mode=state.mode;
+  badge.textContent=state.capturing?'⌨ Saisie…':state.mode==='free'?'⌨ Clavier libre':state.listening?`⌨ ${names[state.mode]}`:'⌨ Indisponible';
   badge.classList.toggle('active',state.listening);
-  badge.title='Les raccourcis restent actifs pendant le jeu.';
+  const activation=pretty(state.bindings.find(binding=>binding.action==='mode').shortcut);
+  badge.title=state.mode==='free'?`Seul ${activation} reste écouté. Prochain état : interaction.`:state.mode==='game'?'Le jeu garde le focus, le pavé pilote TikTok. Prochain état : clavier libre.':'Tu peux utiliser et déplacer la fenêtre. Prochain état : jeu avec pavé actif.';
   $('#toolbar-listening').textContent=badge.textContent;
-  $('#drag-handle').disabled=state.game_mode || state.capturing;
-  $('#mode').lastElementChild.textContent='Reprendre le jeu ↗';
+  $('#drag-handle').disabled=state.mode!=='interaction' || state.capturing;
+  $('#mode').firstElementChild.lastChild.textContent=` ${names[state.mode]}`;
+  $('#mode').lastElementChild.textContent=state.mode==='interaction'?'Passer au jeu ↗':state.mode==='game'?'Libérer le clavier ↗':'Activer l’interaction ↗';
+  $('#toolbar-listening').title=badge.title;
   if(!draft || backendChanged) draft=structuredClone(state.bindings);
   if(state.error) message(state.error,true);
   render();
@@ -90,7 +95,7 @@ async function action(name) {
 $('#close').addEventListener('click',()=>action('help'));
 $('#mode').addEventListener('click',()=>action('mode'));
 for(const selector of ['#drag-handle','#panel-drag']) $(selector).addEventListener('pointerdown',event=>{
-  if(event.button!==0 || captureAction || current?.game_mode) return;
+  if(event.button!==0 || captureAction || current?.mode!=='interaction') return;
   event.preventDefault();
   invoke('drag_window').catch(error=>message(String(error),true));
 });
